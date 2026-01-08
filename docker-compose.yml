@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  weather-mcp-stdio:
+    build: .
+    container_name: weather-mcp-stdio
+    environment:
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - SERVER_MODE=stdio
+    stdin_open: true
+    tty: true
+    profiles:
+      - stdio
+
+  weather-mcp-http:
+    build: .
+    container_name: weather-mcp-http
+    environment:
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - SERVER_MODE=http
+    ports:
+      - "8080:8080"
+    profiles:
+      - http
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
