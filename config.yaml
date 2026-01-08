@@ -1,0 +1,29 @@
+# Weather MCP Server Configuration
+
+server:
+  # Server mode: 'stdio' or 'http'
+  mode: stdio
+  
+  # HTTP server settings (only used when mode is 'http')
+  http:
+    host: 0.0.0.0
+    port: 8080
+
+weather_api:
+  # OpenWeatherMap API configuration
+  provider: openweathermap
+  base_url: https://api.openweathermap.org/data/2.5
+  
+  # API key should be set via environment variable WEATHER_API_KEY
+  # or can be set here (not recommended for production)
+  api_key: ${WEATHER_API_KEY}
+  
+  # Default units: 'metric', 'imperial', or 'standard'
+  units: metric
+  
+  # Request timeout in seconds
+  timeout: 10
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
