@@ -164,3 +164,27 @@ async def test_weather_data_to_dict():
     assert data["temperature"] == 15.5
     assert data["humidity"] == 72
     assert data["units"] == "metric"
+
+
+@pytest.mark.asyncio
+async def test_parse_location_params_coordinates():
+    """Test location parameter parsing with valid coordinates."""
+    config = WeatherApiConfig(api_key="test_key", units="metric")
+    client = WeatherApiClient(config)
+    
+    # Test positive coordinates
+    params = client._parse_location_params("51.5074,-0.1278")
+    assert "lat" in params
+    assert "lon" in params
+    assert params["lat"] == "51.5074"
+    assert params["lon"] == "-0.1278"
+    
+    # Test negative coordinates
+    params = client._parse_location_params("-33.8688,151.2093")
+    assert params["lat"] == "-33.8688"
+    assert params["lon"] == "151.2093"
+    
+    # Test invalid coordinates fall back to text query
+    params = client._parse_location_params("not,coordinates")
+    assert "q" in params
+    assert params["q"] == "not,coordinates"

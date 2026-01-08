@@ -59,6 +59,39 @@ class WeatherApiClient:
         if self._client:
             await self._client.aclose()
     
+    def _parse_location_params(self, location: str) -> Dict[str, str]:
+        """Parse location string into API parameters.
+        
+        Determines if location is coordinates (lat,lon) or a text query.
+        
+        Args:
+            location: City name, coordinates (lat,lon), or zip code.
+            
+        Returns:
+            Dictionary with either 'lat'/'lon' keys or 'q' key.
+        """
+        params = {
+            "appid": self.config.api_key,
+            "units": self.config.units,
+        }
+        
+        # Check if location is coordinates by attempting to parse as floats
+        if ',' in location:
+            parts = location.split(',')
+            if len(parts) == 2:
+                try:
+                    lat = float(parts[0].strip())
+                    lon = float(parts[1].strip())
+                    params["lat"] = str(lat)
+                    params["lon"] = str(lon)
+                    return params
+                except ValueError:
+                    pass  # Not valid coordinates, treat as text query
+        
+        # Treat as city name or zip code
+        params["q"] = location
+        return params
+    
     async def get_current_weather(self, location: str) -> WeatherData:
         """Fetch current weather for a location.
         
@@ -80,22 +113,7 @@ class WeatherApiClient:
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
         
-        # Parse location format
-        params = {
-            "appid": self.config.api_key,
-            "units": self.config.units,
-        }
-        
-        # Check if location is coordinates (lat,lon format)
-        if ',' in location and all(part.replace('.', '').replace('-', '').isdigit() 
-                                   for part in location.split(',')):
-            lat, lon = location.split(',')
-            params["lat"] = lat.strip()
-            params["lon"] = lon.strip()
-        else:
-            # Treat as city name or zip code
-            params["q"] = location
-        
+        params = self._parse_location_params(location)
         url = f"{self.config.base_url}/weather"
         
         logger.info(f"Fetching weather data for location: {location}")
@@ -139,21 +157,9 @@ class WeatherApiClient:
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
         
-        # Parse location format
-        params = {
-            "appid": self.config.api_key,
-            "units": self.config.units,
-            "cnt": min(days * 8, 40),  # API returns 3-hour intervals, max 40
-        }
-        
-        # Check if location is coordinates
-        if ',' in location and all(part.replace('.', '').replace('-', '').isdigit() 
-                                   for part in location.split(',')):
-            lat, lon = location.split(',')
-            params["lat"] = lat.strip()
-            params["lon"] = lon.strip()
-        else:
-            params["q"] = location
+        params = self._parse_location_params(location)
+        # API returns 3-hour intervals, max 40 data points
+        params["cnt"] = min(days * 8, 40)
         
         url = f"{self.config.base_url}/forecast"
         
