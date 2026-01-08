@@ -31,7 +31,6 @@ setup(
         "PyYAML>=6.0.0",
         "uvicorn>=0.30.0",
         "fastapi>=0.110.0",
-        "sse-starlette>=2.0.0",
     ],
     extras_require={
         "dev": [

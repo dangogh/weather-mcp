@@ -1,21 +1,38 @@
-"""HTTP streaming server for MCP over Server-Sent Events."""
+"""HTTP server for basic weather API (Experimental).
+
+Note: Full MCP over SSE support requires additional ASGI integration.
+This provides a simple HTTP API for testing. For production MCP usage,
+use stdio mode which is the standard for MCP servers.
+"""
 
 import logging
 from typing import Any
 
-from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse
-from sse_starlette.sse import ServerSentEvent
-from mcp.server.sse import SseServerTransport
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
-from .server import WeatherMcpServer
+from .weather_client import WeatherApiClient
 from .config import Config
 
 logger = logging.getLogger(__name__)
 
 
+class WeatherRequest(BaseModel):
+    """Weather request model."""
+    location: str
+
+
+class ForecastRequest(BaseModel):
+    """Forecast request model."""
+    location: str
+    days: int = 3
+
+
 def create_http_app(config: Config) -> FastAPI:
-    """Create FastAPI application for HTTP streaming MCP server.
+    """Create FastAPI application for weather HTTP API.
+    
+    Note: This is a simplified HTTP API, not full MCP over SSE.
+    For MCP protocol support, use stdio mode.
     
     Args:
         config: Server configuration.
@@ -24,51 +41,67 @@ def create_http_app(config: Config) -> FastAPI:
         Configured FastAPI application.
     """
     app = FastAPI(
-        title="Weather MCP Server",
-        description="MCP server providing weather information via OpenWeatherMap API",
+        title="Weather MCP Server - HTTP API",
+        description="Simple HTTP API for weather information (Experimental)",
         version="1.0.0",
     )
-    
-    # Create MCP server instance
-    weather_server = WeatherMcpServer(config)
-    mcp_server = weather_server.get_server()
     
     @app.get("/health")
     async def health_check():
         """Health check endpoint."""
         return {"status": "healthy", "service": "weather-mcp"}
     
-    @app.post("/sse")
-    async def handle_sse(request: Request):
-        """Handle MCP over Server-Sent Events.
+    @app.post("/weather/current")
+    async def get_current_weather(request: WeatherRequest):
+        """Get current weather for a location.
         
-        This endpoint provides streaming MCP communication over HTTP using SSE.
-        Clients should POST JSON-RPC messages and receive responses via SSE.
+        Args:
+            request: Weather request with location.
+            
+        Returns:
+            Current weather data.
         """
-        async with SseServerTransport("/messages") as transport:
-            # Initialize transport with request/response handling
-            await transport.handle_post_message(request, mcp_server)
+        try:
+            async with WeatherApiClient(config.weather_api) as client:
+                weather = await client.get_current_weather(request.location)
+                return weather.to_dict()
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error fetching weather: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.post("/weather/forecast")
+    async def get_weather_forecast(request: ForecastRequest):
+        """Get weather forecast for a location.
+        
+        Args:
+            request: Forecast request with location and days.
             
-            async def event_generator():
-                """Generate SSE events from MCP responses."""
-                async for message in transport.get_response_stream():
-                    yield ServerSentEvent(data=message)
-            
-            return StreamingResponse(
-                event_generator(),
-                media_type="text/event-stream",
-            )
+        Returns:
+            Weather forecast data.
+        """
+        try:
+            async with WeatherApiClient(config.weather_api) as client:
+                forecast = await client.get_forecast(request.location, request.days)
+                return forecast
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error fetching forecast: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
     
     @app.get("/")
     async def root():
         """Root endpoint with server information."""
         return {
-            "service": "Weather MCP Server",
+            "service": "Weather MCP Server - HTTP API",
             "version": "1.0.0",
-            "protocol": "MCP over SSE",
+            "note": "This is a simplified HTTP API. For MCP protocol, use stdio mode.",
             "endpoints": {
                 "health": "/health",
-                "sse": "/sse (POST)",
+                "current_weather": "/weather/current (POST)",
+                "forecast": "/weather/forecast (POST)",
             },
         }
     
@@ -76,7 +109,10 @@ def create_http_app(config: Config) -> FastAPI:
 
 
 async def run_http_server(config: Config):
-    """Run the HTTP streaming MCP server.
+    """Run the HTTP weather API server.
+    
+    Note: This runs a simple HTTP API, not full MCP over SSE.
+    For MCP protocol support, use stdio mode instead.
     
     Args:
         config: Server configuration.
@@ -88,6 +124,7 @@ async def run_http_server(config: Config):
     logger.info(
         f"Starting HTTP server on {config.server.http.host}:{config.server.http.port}"
     )
+    logger.info("Note: Running simple HTTP API mode. For MCP protocol, use stdio mode.")
     
     uvicorn_config = uvicorn.Config(
         app,
@@ -98,3 +135,5 @@ async def run_http_server(config: Config):
     
     server = uvicorn.Server(uvicorn_config)
     await server.serve()
+
+

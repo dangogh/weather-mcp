@@ -1,10 +1,11 @@
 # Weather MCP Server
 
-A Model Context Protocol (MCP) server that provides weather information using the OpenWeatherMap API. This server can be run in both stdio and HTTP streaming modes, making it flexible for different integration scenarios.
+A Model Context Protocol (MCP) server that provides weather information using the OpenWeatherMap API. This server primarily runs in stdio mode (the standard for MCP servers) with an experimental HTTP API mode for testing.
 
 ## Features
 
-- **Dual Mode Support**: Run as stdio or HTTP streaming server
+- **MCP Protocol Support**: Full stdio mode support for MCP clients
+- **HTTP API Mode**: Experimental simple HTTP API for testing
 - **Current Weather**: Get current weather conditions for any location
 - **Weather Forecast**: Get weather forecasts up to 5 days ahead
 - **Location Flexibility**: Support for city names, coordinates (lat,lon), and zip codes
@@ -86,7 +87,9 @@ python -m weather_mcp
 weather-mcp
 ```
 
-### Running in HTTP mode
+### Running in HTTP mode (Experimental)
+
+**Note**: HTTP mode provides a simple REST API for testing. For production MCP usage, use stdio mode.
 
 ```bash
 # Update config.yaml to set mode: http, or use environment variable
@@ -99,7 +102,8 @@ python -m weather_mcp
 The HTTP server will start on `http://localhost:8080` with the following endpoints:
 - `GET /`: Server information
 - `GET /health`: Health check
-- `POST /sse`: MCP over Server-Sent Events
+- `POST /weather/current`: Get current weather (JSON: `{"location": "London"}`)
+- `POST /weather/forecast`: Get forecast (JSON: `{"location": "London", "days": 3}`)
 
 ### Using with Docker
 
